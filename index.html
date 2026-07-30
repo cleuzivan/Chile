@@ -154,20 +154,24 @@
     margin-bottom:6px;
   }
   .dot{
-    width:22px;
-    height:22px;
+    min-width:44px;
+    height:32px;
+    padding:0 6px;
     border-radius:6px;
     border:1px solid var(--border);
     background:var(--owed-bg);
     color:var(--owed);
-    font-size:10px;
+    font-size:11px;
     font-weight:700;
     display:flex;
+    flex-direction:column;
     align-items:center;
     justify-content:center;
+    line-height:1.15;
     cursor:pointer;
     user-select:none;
   }
+  .dot .n{ font-size:9px; font-weight:600; opacity:0.75; }
   .dot.paid{
     background:var(--paid);
     border-color:var(--paid);
@@ -216,12 +220,12 @@
    Troque o objeto abaixo pelo config do SEU projeto Firebase.
    Veja o README.md para o passo a passo de como conseguir isso. */
 const firebaseConfig = {
-  apiKey: "AIzaSyBdOSBeUxRvxVcB5tkZDgBjhcDFXUAzXSA",
-  authDomain: "chile2026.firebaseapp.com",
-  projectId: "chile2026",
-  storageBucket: "chile2026.firebasestorage.app",
-  messagingSenderId: "336680439922",
-  appId: "1:336680439922:web:291a4038f61c0ba578b2eb"
+  apiKey: "COLE_AQUI",
+  authDomain: "COLE_AQUI.firebaseapp.com",
+  projectId: "COLE_AQUI",
+  storageBucket: "COLE_AQUI.appspot.com",
+  messagingSenderId: "COLE_AQUI",
+  appId: "COLE_AQUI"
 };
 /* ================================================== */
 
@@ -302,16 +306,27 @@ function render(){
         const paid = isPaid(d.id, person, idx);
         const share = paid ? val/r.share : 0;
         if(paid){ paidVal += val/r.share; } else { remVal += val/r.share; }
-        return `<div class="dot ${paid?'paid':''}" data-debt="${d.id}" data-person="${person}" data-idx="${idx}" title="Parcela ${idx+1}: ${fmt(val/r.share)}">${idx+1}</div>`;
+        return `<div class="dot ${paid?'paid':''}" data-debt="${d.id}" data-person="${person}" data-idx="${idx}" title="Parcela ${idx+1}: ${fmt(val/r.share)}"><span class="n">${idx+1}ª</span>${fmt(val/r.share).replace('R$','')}</div>`;
       }).join('');
       pPaid += paidVal; pRem += remVal;
       const pct = Math.round((paidVal/(paidVal+remVal))*100) || 0;
+
+      let nextText = 'Quitado';
+      const nextIdx = d.values.findIndex((val,idx)=> !isPaid(d.id, person, idx));
+      if(nextIdx !== -1){
+        const nextDate = new Date(d.startYear, d.startMonth+nextIdx, d.dueDay);
+        const dd = String(nextDate.getDate()).padStart(2,'0');
+        const mm = String(nextDate.getMonth()+1).padStart(2,'0');
+        nextText = `Próxima: ${fmt(d.values[nextIdx]/r.share)} em ${dd}/${mm}`;
+      }
+
       return `<div class="debt">
         <p class="title">${d.title}${r.share>1?' (dividido com a dupla)':''}</p>
         <p class="meta">${d.card} · vence dia ${d.dueDay}</p>
         <p class="pix">Pix: ${d.pix}</p>
         <div class="dots">${dotsHtml}</div>
         <div class="bar small"><div style="width:${pct}%"></div></div>
+        <p class="meta" style="margin-top:6px;">${nextText}</p>
       </div>`;
     }).join('');
 
