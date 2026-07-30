@@ -1,0 +1,375 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Dívidas da Viagem</title>
+
+<!-- Firebase (compat build: funciona só com <script>, sem precisar de build tools) -->
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+
+<style>
+  :root{
+    --bg: #f6f5f2;
+    --surface: #ffffff;
+    --border: #e2e0da;
+    --ink: #262420;
+    --ink-soft: #6b675f;
+    --paid: #2f6f5e;
+    --paid-bg: #e4efec;
+    --owed: #b5482f;
+    --owed-bg: #f6e8e4;
+    --accent: #b5482f;
+    --radius: 14px;
+  }
+  *{ box-sizing:border-box; }
+  body{
+    margin:0;
+    background:var(--bg);
+    color:var(--ink);
+    font-family: 'Segoe UI', Roboto, -apple-system, sans-serif;
+    line-height:1.4;
+  }
+  header{
+    padding:1.5rem 1.25rem 1rem;
+    text-align:center;
+  }
+  header h1{
+    font-size:20px;
+    margin:0 0 4px;
+    letter-spacing:0.2px;
+  }
+  header p{
+    font-size:13px;
+    color:var(--ink-soft);
+    margin:0;
+  }
+  main{
+    max-width:900px;
+    margin:0 auto;
+    padding:0 1rem 3rem;
+  }
+
+  /* Gate */
+  #gate{
+    max-width:320px;
+    margin:3rem auto;
+    text-align:center;
+    background:var(--surface);
+    border:1px solid var(--border);
+    border-radius:var(--radius);
+    padding:1.75rem 1.5rem;
+  }
+  #gate p{ font-size:15px; font-weight:600; margin:0 0 14px; }
+  #pw{
+    width:100%;
+    padding:10px 12px;
+    font-size:15px;
+    border:1px solid var(--border);
+    border-radius:8px;
+    text-align:center;
+    margin-bottom:10px;
+  }
+  button{
+    font-family:inherit;
+    font-size:14px;
+    font-weight:600;
+    cursor:pointer;
+    border:none;
+    border-radius:8px;
+    padding:10px 14px;
+  }
+  #pwBtn{
+    width:100%;
+    background:var(--accent);
+    color:#fff;
+  }
+  #pwErr{ font-size:12px; color:var(--owed); margin-top:8px; display:none; }
+
+  /* Summary */
+  #summary{
+    display:none;
+    grid-template-columns:repeat(3,1fr);
+    gap:10px;
+    margin:1.25rem 0 1.5rem;
+  }
+  .sum-card{
+    background:var(--surface);
+    border:1px solid var(--border);
+    border-radius:var(--radius);
+    padding:.9rem 1rem;
+  }
+  .sum-card .label{ font-size:12px; color:var(--ink-soft); margin:0 0 4px; }
+  .sum-card .value{ font-size:20px; font-weight:700; margin:0; }
+
+  #people{
+    display:none;
+    grid-template-columns:repeat(auto-fit,minmax(300px,1fr));
+    gap:12px;
+  }
+  .person{
+    background:var(--surface);
+    border:1px solid var(--border);
+    border-radius:var(--radius);
+    padding:1rem 1.15rem;
+  }
+  .person-head{
+    display:flex;
+    justify-content:space-between;
+    align-items:baseline;
+  }
+  .person-head .name{ font-size:16px; font-weight:700; margin:0; }
+  .person-head .pct{ font-size:13px; color:var(--ink-soft); }
+  .bar{
+    height:8px;
+    background:var(--owed-bg);
+    border-radius:4px;
+    overflow:hidden;
+    margin:8px 0;
+  }
+  .bar > div{ height:100%; background:var(--paid); }
+  .bar.small{ height:6px; }
+  .row-values{
+    display:flex;
+    justify-content:space-between;
+    font-size:13px;
+  }
+  .row-values .paid{ color:var(--paid); font-weight:600; }
+  .row-values .owed{ color:var(--owed); font-weight:600; }
+
+  .debt{
+    margin-top:10px;
+    padding-top:10px;
+    border-top:1px solid var(--border);
+  }
+  .debt .title{ font-size:13px; font-weight:600; margin:0 0 2px; }
+  .debt .meta{ font-size:12px; color:var(--ink-soft); margin:0 0 2px; }
+  .debt .pix{ font-size:12px; color:var(--ink-soft); margin:0 0 8px; }
+
+  .dots{
+    display:flex;
+    flex-wrap:wrap;
+    gap:5px;
+    margin-bottom:6px;
+  }
+  .dot{
+    width:22px;
+    height:22px;
+    border-radius:6px;
+    border:1px solid var(--border);
+    background:var(--owed-bg);
+    color:var(--owed);
+    font-size:10px;
+    font-weight:700;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    cursor:pointer;
+    user-select:none;
+  }
+  .dot.paid{
+    background:var(--paid);
+    border-color:var(--paid);
+    color:#fff;
+  }
+  .dot:hover{ opacity:0.85; }
+
+  .total-row{
+    margin-top:10px;
+    padding-top:10px;
+    border-top:1px solid var(--ink);
+    display:flex;
+    justify-content:space-between;
+    font-size:14px;
+    font-weight:700;
+  }
+
+  footer{
+    text-align:center;
+    font-size:11px;
+    color:var(--ink-soft);
+    padding:1rem;
+  }
+
+  @media (prefers-reduced-motion:no-preference){
+    .dot{ transition:background .15s ease; }
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>Dívidas da viagem</h1>
+  <p>Toque em uma parcela para marcar como paga. Atualiza para todo mundo na hora.</p>
+</header>
+
+<main>
+  <div id="summary"></div>
+  <div id="people"></div>
+</main>
+
+<footer>Painel privado da família · dados sincronizados via Firebase</footer>
+
+<script>
+/* ============ CONFIGURAÇÃO DO FIREBASE ============
+   Troque o objeto abaixo pelo config do SEU projeto Firebase.
+   Veja o README.md para o passo a passo de como conseguir isso. */
+const firebaseConfig = {
+  apiKey: "AIzaSyBdOSBeUxRvxVcB5tkZDgBjhcDFXUAzXSA",
+  authDomain: "chile2026.firebaseapp.com",
+  projectId: "chile2026",
+  storageBucket: "chile2026.firebasestorage.app",
+  messagingSenderId: "336680439922",
+  appId: "1:336680439922:web:291a4038f61c0ba578b2eb"
+};
+/* ================================================== */
+
+firebase.initializeApp(firebaseConfig);
+const db = firebase.firestore();
+
+document.getElementById('summary').style.display = 'grid';
+document.getElementById('people').style.display = 'grid';
+startApp();
+
+const fmt = v => v.toLocaleString('pt-BR',{style:'currency',currency:'BRL'});
+const todayForDefaults = new Date();
+
+const DEBTS = [
+  {id:'airbnb', title:'Airbnb (hospedagem)', card:'Cartão do Van', pix:'82988554193', dueDay:14,
+   startYear:2026, startMonth:2,
+   values:[54.55,54.55,54.55,62.34,72.38,125.82,62.34,62.34,62.34,62.34],
+   perParticipant:true, participants:['Van','Elenilda','Keu','Luana','Jaci','João','Célio']},
+  {id:'ida_ind', title:'Passagem de ida', card:'Cartão da Elenilda', pix:'49801236434', dueDay:5,
+   startYear:2026, startMonth:3, values:Array(10).fill(135.70),
+   perParticipant:true, participants:['Jaci','João','Elenilda','Célio','Van']},
+  {id:'ida_kl', title:'Passagem de ida (com Luana)', card:'Cartão da Elenilda', pix:'49801236434', dueDay:5,
+   startYear:2026, startMonth:3, values:Array(12).fill(234.72),
+   perParticipant:false, participants:['Keu','Luana']},
+  {id:'volta_kl', title:'Passagem de volta (com Luana)', card:'Cartão do Van', pix:'82988554193', dueDay:14,
+   startYear:2026, startMonth:5, values:Array(10).fill(285.38),
+   perParticipant:false, participants:['Keu','Luana']},
+  {id:'volta_g4', title:'Passagem de volta', card:'Cartão da Elenilda', pix:'49801236434', dueDay:5,
+   startYear:2026, startMonth:6, values:Array(12).fill(125.88),
+   perParticipant:true, participants:['Jaci','João','Célio','Van']},
+  {id:'volta_elen', title:'Passagem de volta', card:'Cartão da Elenilda', pix:'49801236434', dueDay:5,
+   startYear:2026, startMonth:6, values:Array(10).fill(89.00),
+   perParticipant:true, participants:['Elenilda']}
+];
+
+// Monta a lista fixa de "linhas" pessoa+dívida (participação e valor de cada parcela)
+const rows = []; // {debt, person, share, key}
+DEBTS.forEach(d=>{
+  const share = d.perParticipant ? 1 : d.participants.length;
+  d.participants.forEach(person=>{
+    rows.push({ debt:d, person, share });
+  });
+});
+
+function defaultPaid(debt, idx){
+  const date = new Date(debt.startYear, debt.startMonth+idx, debt.dueDay);
+  return date <= todayForDefaults;
+}
+
+let paymentsMap = {}; // key -> true/false
+
+function keyFor(debtId, person, idx){ return `${debtId}__${person}__${idx}`; }
+
+function isPaid(debtId, person, idx){
+  const k = keyFor(debtId, person, idx);
+  if(Object.prototype.hasOwnProperty.call(paymentsMap, k)) return paymentsMap[k];
+  const debt = DEBTS.find(d=>d.id===debtId);
+  return defaultPaid(debt, idx);
+}
+
+function togglePaid(debtId, person, idx){
+  const current = isPaid(debtId, person, idx);
+  const k = keyFor(debtId, person, idx);
+  db.collection('pagamentos').doc(k).set({ paid: !current });
+}
+
+function render(){
+  let totalPaid = 0, totalRem = 0;
+  const people = [...new Set(rows.map(r=>r.person))].sort();
+
+  const peopleHtml = people.map(person=>{
+    const personRows = rows.filter(r=>r.person===person);
+    let pPaid = 0, pRem = 0;
+    const debtsHtml = personRows.map(r=>{
+      const d = r.debt;
+      let paidVal = 0, remVal = 0;
+      const dotsHtml = d.values.map((val,idx)=>{
+        const paid = isPaid(d.id, person, idx);
+        const share = paid ? val/r.share : 0;
+        if(paid){ paidVal += val/r.share; } else { remVal += val/r.share; }
+        return `<div class="dot ${paid?'paid':''}" data-debt="${d.id}" data-person="${person}" data-idx="${idx}" title="Parcela ${idx+1}: ${fmt(val/r.share)}">${idx+1}</div>`;
+      }).join('');
+      pPaid += paidVal; pRem += remVal;
+      const pct = Math.round((paidVal/(paidVal+remVal))*100) || 0;
+      return `<div class="debt">
+        <p class="title">${d.title}${r.share>1?' (dividido com a dupla)':''}</p>
+        <p class="meta">${d.card} · vence dia ${d.dueDay}</p>
+        <p class="pix">Pix: ${d.pix}</p>
+        <div class="dots">${dotsHtml}</div>
+        <div class="bar small"><div style="width:${pct}%"></div></div>
+      </div>`;
+    }).join('');
+
+    totalPaid += pPaid; totalRem += pRem;
+    const total = pPaid + pRem;
+    const pct = total>0 ? Math.round((pPaid/total)*100) : 0;
+
+    return `<div class="person">
+      <div class="person-head">
+        <p class="name">${person}</p>
+        <span class="pct">${pct}% pago</span>
+      </div>
+      <div class="bar"><div style="width:${pct}%"></div></div>
+      <div class="row-values">
+        <span class="paid">Pago: ${fmt(pPaid)}</span>
+        <span class="owed">Falta: ${fmt(pRem)}</span>
+      </div>
+      ${debtsHtml}
+      <div class="total-row">
+        <span>Total a pagar</span>
+        <span>${fmt(total)}</span>
+      </div>
+    </div>`;
+  }).join('');
+
+  document.getElementById('people').innerHTML = peopleHtml;
+  document.getElementById('summary').innerHTML = `
+    <div class="sum-card">
+      <p class="label">Total da viagem</p>
+      <p class="value">${fmt(totalPaid+totalRem)}</p>
+    </div>
+    <div class="sum-card">
+      <p class="label">Já pago (todos)</p>
+      <p class="value" style="color:var(--paid)">${fmt(totalPaid)}</p>
+    </div>
+    <div class="sum-card">
+      <p class="label">Falta pagar</p>
+      <p class="value" style="color:var(--owed)">${fmt(totalRem)}</p>
+    </div>`;
+
+  document.querySelectorAll('.dot').forEach(el=>{
+    el.addEventListener('click', ()=>{
+      togglePaid(el.dataset.debt, el.dataset.person, Number(el.dataset.idx));
+    });
+  });
+}
+
+function startApp(){
+  db.collection('pagamentos').onSnapshot(snapshot=>{
+    paymentsMap = {};
+    snapshot.forEach(doc=>{ paymentsMap[doc.id] = doc.data().paid; });
+    render();
+  }, err=>{
+    console.error('Erro ao conectar no Firestore:', err);
+    document.getElementById('people').innerHTML =
+      '<p style="grid-column:1/-1;color:var(--owed);">Não consegui conectar ao banco de dados. Confira o firebaseConfig no index.html (veja o README.md).</p>';
+  });
+}
+</script>
+</body>
+</html>
