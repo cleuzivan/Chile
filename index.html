@@ -210,6 +210,7 @@
 
 <main>
   <div id="summary"></div>
+  <p id="loading" style="text-align:center;color:var(--ink-soft);font-size:13px;">Carregando informações...</p>
   <div id="people"></div>
 </main>
 
@@ -372,6 +373,9 @@ function render(){
       togglePaid(el.dataset.debt, el.dataset.person, Number(el.dataset.idx));
     });
   });
+
+  const loadingEl = document.getElementById('loading');
+  if(loadingEl) loadingEl.style.display = 'none';
 }
 
 function startApp(){
